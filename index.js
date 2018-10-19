@@ -20,13 +20,18 @@ module.exports = function createRedisMemCache(redisUrl, prefix = '') {
   const redisClient = redis.createClient(redisUrl);
 
   const asBase64 = value => new Buffer(JSON.stringify(value)).toString('base64');
-  const withPrefix = key => `${PREFIX}${prefix}.${asBase64(key)}`;
+  const withPrefix = key => `${PREFIX}${prefix}${prefix.length ? '.' : ''}${asBase64(key)}`;
   const has = key => redisClient.existsAsync(withPrefix(key));
   const get = key => redisClient.getAsync(withPrefix(key)).then(_ => (_ ? JSON.parse(_) : _));
   const set = async (key, { data, maxAge }) => {
     const resolved = await data;
-    const ttl = maxAge - +new Date();
-    return redisClient.setAsync(withPrefix(key), JSON.stringify(resolved), 'PX', ttl);
+
+    if (maxAge) {
+      const ttl = maxAge - +new Date();
+      return redisClient.setAsync(withPrefix(key), JSON.stringify(resolved), 'PX', ttl);
+    } else {
+      return redisClient.setAsync(withPrefix(key), JSON.stringify(resolved));
+    }
   };
 
   const del = key => redisClient.delAsync(withPrefix(key));
